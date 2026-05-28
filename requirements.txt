@@ -1,4 +1,0 @@
-flask>=3.0
-gunicorn
-openpyxl
-pandas
