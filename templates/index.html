@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Tabela de Ativos</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0a0a0f;
+    --card:     #111118;
+    --card2:    #13131c;
+    --border:   rgba(255,255,255,0.07);
+    --border2:  rgba(255,255,255,0.12);
+    --accent-green:  #22c55e;
+    --accent-purple: #a855f7;
+    --accent-blue:   #3b82f6;
+    --accent-pink:   #ec4899;
+    --accent-yellow: #eab308;
+    --text:     #f1f5f9;
+    --text-muted: #64748b;
+    --text-mid:   #94a3b8;
+    --font:      'Sora', sans-serif;
+    --mono:      'JetBrains Mono', monospace;
+    --radius:    16px;
+    --radius-sm: 10px;
+    --radius-pill: 999px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── LOADER ── */
+  #loader {
+    position: fixed;
+    inset: 0;
+    background: #0a0a0f;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 32px;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  #loader.hide {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(1.03);
+  }
+
+  .loader-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  .loader-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    animation: dotPulse 1.8s ease-in-out infinite;
+  }
+  /* stagger each of the 25 dots */
+  .loader-dot:nth-child(1)  { animation-delay: 0.00s; }
+  .loader-dot:nth-child(2)  { animation-delay: 0.07s; }
+  .loader-dot:nth-child(3)  { animation-delay: 0.14s; }
+  .loader-dot:nth-child(4)  { animation-delay: 0.21s; }
+  .loader-dot:nth-child(5)  { animation-delay: 0.28s; }
+  .loader-dot:nth-child(6)  { animation-delay: 0.35s; }
+  .loader-dot:nth-child(7)  { animation-delay: 0.42s; }
+  .loader-dot:nth-child(8)  { animation-delay: 0.49s; }
+  .loader-dot:nth-child(9)  { animation-delay: 0.56s; }
+  .loader-dot:nth-child(10) { animation-delay: 0.63s; }
+  .loader-dot:nth-child(11) { animation-delay: 0.70s; }
+  .loader-dot:nth-child(12) { animation-delay: 0.77s; }
+  .loader-dot:nth-child(13) { animation-delay: 0.84s; }
+  .loader-dot:nth-child(14) { animation-delay: 0.77s; }
+  .loader-dot:nth-child(15) { animation-delay: 0.70s; }
+  .loader-dot:nth-child(16) { animation-delay: 0.63s; }
+  .loader-dot:nth-child(17) { animation-delay: 0.56s; }
+  .loader-dot:nth-child(18) { animation-delay: 0.49s; }
+  .loader-dot:nth-child(19) { animation-delay: 0.42s; }
+  .loader-dot:nth-child(20) { animation-delay: 0.35s; }
+  .loader-dot:nth-child(21) { animation-delay: 0.28s; }
+  .loader-dot:nth-child(22) { animation-delay: 0.21s; }
+  .loader-dot:nth-child(23) { animation-delay: 0.14s; }
+  .loader-dot:nth-child(24) { animation-delay: 0.07s; }
+  .loader-dot:nth-child(25) { animation-delay: 0.00s; }
+
+  @keyframes dotPulse {
+    0%, 100% { background: rgba(255,255,255,0.06); transform: scale(1); }
+    50%       { background: rgba(168,85,247,0.9);  transform: scale(1.6); box-shadow: 0 0 8px rgba(168,85,247,0.6); }
+  }
+
+  .loader-bar-wrap {
+    width: 120px;
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .loader-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #a855f7, #3b82f6);
+    border-radius: 999px;
+    animation: barFill 1.6s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  @keyframes barFill {
+    0%   { width: 0%; }
+    60%  { width: 75%; }
+    100% { width: 100%; }
+  }
+
+  .loader-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.18);
+    text-transform: uppercase;
+    animation: labelFade 1.6s ease forwards;
+  }
+  @keyframes labelFade {
+    0%   { opacity: 0; }
+    30%  { opacity: 1; }
+    85%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* body locked during load */
+  body.loading { overflow: hidden; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 20px 64px;
+    background-image:
+      radial-gradient(ellipse 60% 50% at 20% 0%, rgba(168,85,247,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 80% 10%, rgba(59,130,246,0.07) 0%, transparent 60%);
+  }
+
+  /* ── HEADER ── */
+  header {
+    width: 100%;
+    max-width: 960px;
+    padding: 48px 0 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    border: 1px solid rgba(34,197,94,0.35);
+    background: rgba(34,197,94,0.07);
+    color: var(--accent-green);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .header-badge::before {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 8px var(--accent-green);
+  }
+
+  .header-title {
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: #fff;
+  }
+
+  .header-sub {
+    font-size: 15px;
+    color: var(--text-mid);
+    font-weight: 400;
+    max-width: 480px;
+    line-height: 1.6;
+  }
+
+  /* ── NAV TABS ── */
+  nav {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+    max-width: 960px;
+    margin-bottom: 32px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px;
+  }
+  .tab {
+    flex: 1;
+    padding: 11px 16px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    letter-spacing: 0.01em;
+  }
+  .tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .tab.active {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+
+  /* ── PANELS ── */
+  .panel { display: none; width: 100%; max-width: 960px; animation: fadeIn .2s ease; }
+  .panel.active { display: block; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 16px;
+  }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  /* ── FORM ── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 7px; }
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--text-mid);
+    text-transform: uppercase;
+  }
+
+  select, input[type="text"] {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 11px 16px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+    width: 100%;
+  }
+  select:focus, input[type="text"]:focus {
+    border-color: rgba(168,85,247,0.5);
+    background: rgba(168,85,247,0.05);
+    box-shadow: 0 0 0 3px rgba(168,85,247,0.1);
+  }
+  select option { background: #111118; }
+  input::placeholder { color: var(--text-muted); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 12px 28px;
+    border-radius: var(--radius-sm);
+    border: none;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .2s;
+    letter-spacing: 0.02em;
+  }
+  .btn-primary {
+    background: #fff;
+    color: #0a0a0f;
+  }
+  .btn-primary:hover {
+    background: #e2e8f0;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .btn-danger {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: #f87171;
+    font-size: 12px;
+    padding: 6px 16px;
+    border-radius: 8px;
+  }
+  .btn-danger:hover {
+    background: rgba(239,68,68,0.2);
+    border-color: rgba(239,68,68,0.5);
+  }
+
+  /* ── SERIE TOGGLE ── */
+  .serie-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .stab {
+    padding: 7px 18px;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .stab:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+  .stab.active {
+    background: rgba(168,85,247,0.12);
+    border-color: rgba(168,85,247,0.4);
+    color: #c084fc;
+  }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-mid);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); color: var(--text); }
+
+  /* ── BADGE ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-family: var(--mono);
+    font-weight: 500;
+    border-radius: 8px;
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.25);
+    color: #60a5fa;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-num {
+    background: rgba(168,85,247,0.1);
+    border-color: rgba(168,85,247,0.25);
+    color: #c084fc;
+  }
+
+  /* ── STATUS DOT ── */
+  .status-ok { color: var(--accent-green); display: flex; align-items: center; gap: 6px; }
+  .status-ok::before { content:''; width:6px;height:6px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 6px var(--accent-green); }
+
+  /* ── EMPTY ── */
+  .empty-msg {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 48px 0;
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── TOTAL ── */
+  .total-line {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 16px;
+    text-align: right;
+    font-family: var(--mono);
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .total-line .chip {
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.25);
+    color: var(--accent-green);
+    border-radius: var(--radius-pill);
+    padding: 2px 10px;
+    font-size: 12px;
+  }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    padding: 14px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(34,197,94,0.3);
+    background: rgba(17,17,24,0.95);
+    backdrop-filter: blur(12px);
+    color: var(--accent-green);
+    opacity: 0;
+    transform: translateX(20px) scale(0.97);
+    transition: all .3s cubic-bezier(.34,1.56,.64,1);
+    z-index: 999;
+    pointer-events: none;
+    max-width: 320px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  #toast.show { opacity: 1; transform: none; }
+  #toast.error {
+    border-color: rgba(239,68,68,0.3);
+    color: #f87171;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 560px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-group.full { grid-column: 1; }
+    header { padding: 32px 0 28px; }
+    .card { padding: 20px; }
+  }
+</style>
+</head>
+<body class="loading">
+
+<!-- ── LOADER ── -->
+<div id="loader">
+  <div class="loader-grid">
+    <div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div>
+    <div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div>
+    <div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div>
+    <div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div>
+    <div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div>
+  </div>
+  <div class="loader-bar-wrap"><div class="loader-bar"></div></div>
+  <div class="loader-label">Carregando sistema</div>
+</div>
+
+<header>
+  <div class="header-badge">Sistema Operacional</div>
+  <h1 class="header-title">Tabela de<br>Ativos Escolares</h1>
+  <p class="header-sub">Gerencie notebooks e carregadores por turma. Registre, visualize e remova ativos com facilidade.</p>
+</header>
+
+<nav>
+  <button class="tab active" onclick="showTab('registrar', this)">Registrar</button>
+  <button class="tab"        onclick="showTab('visualizar', this)">Visualizar</button>
+  <button class="tab"        onclick="showTab('remover', this)">Remover</button>
+</nav>
+
+<!-- REGISTRAR -->
+<div id="panel-registrar" class="panel active">
+  <div class="card">
+    <div class="section-title">Registrar novo ativo</div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Ano do Ensino Médio</label>
+        <select id="reg-serie">
+          <option value="">— Selecione o ano —</option>
+          <option value="2">2º Ano</option>
+          <option value="3">3º Ano</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Responsável — User 1</label>
+        <input type="text" id="reg-owner1" placeholder="Nome completo"/>
+      </div>
+      <div class="form-group">
+        <label>Responsável — User 2</label>
+        <input type="text" id="reg-owner2" placeholder="Nome completo"/>
+      </div>
+      <div class="form-group">
+        <label>ID do Notebook</label>
+        <input type="text" id="reg-nb" placeholder="Ex: 07"/>
+      </div>
+      <div class="form-group">
+        <label>ID do Carregador</label>
+        <input type="text" id="reg-car" placeholder="Ex: 07"/>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="registrar()">Registrar Ativo</button>
+  </div>
+</div>
+
+<!-- VISUALIZAR -->
+<div id="panel-visualizar" class="panel">
+  <div class="card">
+    <div class="section-title">Ativos registrados</div>
+    <div class="serie-toggle">
+      <button class="stab active" onclick="loadAtivos('2', this)">2º Ano</button>
+      <button class="stab"        onclick="loadAtivos('3', this)">3º Ano</button>
+    </div>
+    <div id="table-container"></div>
+  </div>
+</div>
+
+<!-- REMOVER -->
+<div id="panel-remover" class="panel">
+  <div class="card">
+    <div class="section-title">Remover ativo</div>
+    <div class="serie-toggle">
+      <button class="stab active" onclick="loadRemover('2', this)">2º Ano</button>
+      <button class="stab"        onclick="loadRemover('3', this)">3º Ano</button>
+    </div>
+    <div id="remove-container"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ── Loader ────────────────────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      const loader = document.getElementById('loader');
+      loader.classList.add('hide');
+      document.body.classList.remove('loading');
+      setTimeout(() => loader.remove(), 700);
+    }, 1800);
+  });
+
+  let vizAno = "2", remAno = "2";
+
+  function showTab(name, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+    if (name === 'visualizar') loadAtivos(vizAno);
+    if (name === 'remover')    loadRemover(remAno);
+  }
+
+  function toast(msg, err = false) {
+    const el = document.getElementById('toast');
+    el.textContent = (err ? '✕ ' : '✓ ') + msg;
+    el.className = 'show' + (err ? ' error' : '');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.className = '', 3200);
+  }
+
+  async function registrar() {
+    const payload = {
+      serie_id:      document.getElementById('reg-serie').value,
+      owner_1:       document.getElementById('reg-owner1').value,
+      owner_2:       document.getElementById('reg-owner2').value,
+      id_computer:   document.getElementById('reg-nb').value,
+      id_carregator: document.getElementById('reg-car').value,
+    };
+    if (!payload.serie_id || !payload.owner_1 || !payload.owner_2 || !payload.id_computer || !payload.id_carregator) {
+      return toast('Preencha todos os campos.', true);
+    }
+    const res  = await fetch('/api/registrar', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const data = await res.json();
+    toast(data.msg, !data.ok);
+    if (data.ok) {
+      ['reg-serie','reg-owner1','reg-owner2','reg-nb','reg-car'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+    }
+  }
+
+  async function loadAtivos(ano, btn) {
+    vizAno = ano;
+    if (btn) {
+      document.querySelectorAll('#panel-visualizar .stab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    const res  = await fetch('/api/visualizar/' + ano);
+    const data = await res.json();
+    const wrap = document.getElementById('table-container');
+    if (!data.ativos.length) {
+      wrap.innerHTML = `<div class="empty-msg">Nenhum ativo registrado para o ${ano}º Ano</div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Nº</th><th>Responsável 1</th><th>Responsável 2</th><th>Notebook</th><th>Carregador</th>
+          </tr></thead>
+          <tbody>
+            ${data.ativos.map(a => `
+              <tr>
+                <td><span class="badge badge-num">${String(a.num).padStart(2,'0')}</span></td>
+                <td>${a.owner_1}</td>
+                <td>${a.owner_2}</td>
+                <td><span class="badge">${a.nb}</span></td>
+                <td><span class="badge">${a.car}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="total-line">
+        Total registrado no ${ano}º Ano
+        <span class="chip">${data.total} notebook${data.total !== 1 ? 's' : ''}</span>
+      </div>`;
+  }
+
+  async function loadRemover(ano, btn) {
+    remAno = ano;
+    if (btn) {
+      document.querySelectorAll('#panel-remover .stab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    const res  = await fetch('/api/visualizar/' + ano);
+    const data = await res.json();
+    const wrap = document.getElementById('remove-container');
+    if (!data.ativos.length) {
+      wrap.innerHTML = `<div class="empty-msg">Nenhum ativo registrado para o ${ano}º Ano</div>`;
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Nº</th><th>Responsável 1</th><th>Responsável 2</th><th>Notebook</th><th>Carregador</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${data.ativos.map(a => `
+              <tr>
+                <td><span class="badge badge-num">${String(a.num).padStart(2,'0')}</span></td>
+                <td>${a.owner_1}</td>
+                <td>${a.owner_2}</td>
+                <td><span class="badge">${a.nb}</span></td>
+                <td><span class="badge">${a.car}</span></td>
+                <td><button class="btn btn-danger" onclick="remover(${ano}, ${a.id})">Remover</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="total-line">
+        Total no ${ano}º Ano
+        <span class="chip">${data.total} notebook${data.total !== 1 ? 's' : ''}</span>
+      </div>`;
+  }
+
+  async function remover(ano, idx) {
+    if (!confirm('Confirmar remoção do ativo?')) return;
+    const res  = await fetch(`/api/remover/${ano}/${idx}`, { method: 'DELETE' });
+    const data = await res.json();
+    toast(data.msg, !data.ok);
+    if (data.ok) loadRemover(ano);
+  }
+</script>
+</body>
+</html>
