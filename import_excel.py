@@ -93,7 +93,14 @@ for sec in SECTIONS:
 
     print(f"   {sec['name']:35s} → {count} registros")
 
-print(f"\n📊 Total: {len(records)} registros")
+# ... (Mantenha igual a leitura do Pandas e processamento de 'records' lá em cima)
+
+print(f"\n📊 Total processado da planilha: {len(records)} registros")
+
+# Garante que a pasta exista antes de rodar o script
+db_dir = os.path.dirname(DB_PATH)
+if db_dir and not os.path.exists(db_dir):
+    os.makedirs(db_dir, exist_ok=True)
 
 conn = sqlite3.connect(DB_PATH)
 conn.execute("""
@@ -113,16 +120,23 @@ conn.execute("""
         criticidade   TEXT    NOT NULL DEFAULT ''
     )
 """)
-conn.execute("DELETE FROM ativos")
-conn.executemany("""
-    INSERT INTO ativos
-        (serie_id, owner_1, owner_2, id_computer, id_carregator,
-         tipo, marca, modelo, local, situacao, mochila, criticidade)
-    VALUES
-        (:serie_id, :owner_1, :owner_2, :id_computer, :id_carregator,
-         :tipo, :marca, :modelo, :local, :situacao, :mochila, :criticidade)
-""", records)
-conn.commit()
-total = conn.execute("SELECT COUNT(*) FROM ativos").fetchone()[0]
-print(f"✅ {total} registros importados para '{DB_PATH}'")
+
+# 🔥 MODIFICAÇÃO SEGURA: Verifica se o banco já tem dados salvos no volume
+total_atual = conn.execute("SELECT COUNT(*) FROM ativos").fetchone()[0]
+
+if total_atual == 0:
+    print("🔄 O volume está vazio. Populando banco de dados pela primeira vez com o Excel...")
+    conn.executemany("""
+        INSERT INTO ativos
+            (serie_id, owner_1, owner_2, id_computer, id_carregator,
+             tipo, marca, modelo, local, situacao, mochila, criticidade)
+        VALUES
+            (:serie_id, :owner_1, :owner_2, :id_computer, :id_carregator,
+             :tipo, :marca, :modelo, :local, :situacao, :mochila, :criticidade)
+    """, records)
+    conn.commit()
+    print("✅ Dados da planilha importados com sucesso para dentro do Volume!")
+else:
+    print(f"⚠️ O volume já possui {total_atual} registros. Importação do Excel ignorada para proteger suas alterações online.")
+
 conn.close()
