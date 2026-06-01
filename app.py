@@ -6,6 +6,11 @@ app = Flask(__name__, template_folder="templates")
 
 DB_PATH = os.getenv("DB_PATH", "ativos.db")
 
+# 🔥 NOVA LINHA: Garante que a pasta do volume exista na nuvem antes de conectar
+db_dir = os.path.dirname(DB_PATH)
+if db_dir and not os.path.exists(db_dir):
+    os.makedirs(db_dir, exist_ok=True)
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -14,8 +19,7 @@ def get_db():
 def init_db():
     conn = get_db()
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS ativos (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        CREATE TABLE IF NOT EXISTS ativos (\n            id            INTEGER PRIMARY KEY AUTOINCREMENT,
             serie_id      TEXT    NOT NULL,
             owner_1       TEXT    NOT NULL DEFAULT '',
             owner_2       TEXT    NOT NULL DEFAULT '',
@@ -45,34 +49,16 @@ def visualizar(serie):
     conn.close()
 
     ativos = []
-    for i, r in enumerate(rows, start=1):
-        ativos.append({
-            "id":          r["id"],
-            "num":         i,
-            "owner_1":     r["owner_1"],
-            "owner_2":     r["owner_2"],
-            "tipo":        r["tipo"],
-            "marca":       r["marca"],
-            "modelo":      r["modelo"],
-            "local":       r["local"],
-            "nb":          r["id_computer"],
-            "car":         r["id_carregator"],
-            "situacao":    r["situacao"],
-            "mochila":     r["mochila"],
-            "criticidade": r["criticidade"],
-        })
-
-    return jsonify({"ok": True, "ativos": ativos, "total": len(ativos)})
+    for r in rows:
+        ativos.append(dict(r))
+    return jsonify(ativos)
 
 @app.route("/api/registrar", methods=["POST"])
 def registrar():
-    data = request.get_json()
-
-    required = ["serie_id", "owner_1", "id_computer",
-                "id_carregator", "tipo", "marca", "modelo",
-                "local", "situacao", "mochila", "criticidade"]
-
-    for field in required:
+    data = request.json
+    campos_obrigatorios = ["serie_id", "owner_1", "id_computer", "id_carregator", "tipo", "marca", "modelo", "local", "situacao", "mochila", "criticidade"]
+    
+    for field in campos_obrigatorios:
         if not data.get(field, "").strip():
             return jsonify({"ok": False, "msg": f"Campo obrigatório: {field}"})
 
@@ -119,5 +105,4 @@ def index():
     return render_template("index.html")
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))
-    app.run(debug=False, host="0.0.0.0", port=port)
+    app.run(debug=True)
