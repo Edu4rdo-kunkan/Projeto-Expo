@@ -20,6 +20,10 @@ COL = {
     "criticidade": 8, "mochila": 9, "carregador": 10,
 }
 
+# Valores que indicam que a linha é cabeçalho ou lixo, não dado real
+SKIP_TIPO = {"tipo", "type", "", "nan"}
+SKIP_ATIVO = {"ativo", "asset", "nan"}
+
 def split_users(text):
     text = str(text).strip() if pd.notna(text) else ""
     for sep in [" & ", " / ", "&", "/"]:
@@ -35,25 +39,36 @@ def safe_cell(row, base, offset, total_cols):
     val = row.iloc[idx]
     return str(val).strip() if pd.notna(val) else ""
 
+# Lê planilha sem cabeçalho nenhum
 df = pd.read_excel(EXCEL_FILE, header=None)
-data_rows = df.iloc[2:].reset_index(drop=True)
 total_cols = len(df.columns)
+print(f"📋 Planilha: {total_cols} colunas, {len(df)} linhas totais")
 
-print(f"📋 Planilha tem {total_cols} colunas e {len(data_rows)} linhas de dados.")
+# Pula as 2 primeiras linhas (linha 0 = cabeçalhos gerais, linha 1 = títulos das colunas)
+data_rows = df.iloc[2:].reset_index(drop=True)
+print(f"📋 Linhas de dados: {len(data_rows)}")
 
 records = []
 
 for sec in SECTIONS:
     base = sec["start_col"]
     if base >= total_cols:
-        print(f"⚠️  Seção '{sec['name']}' ignorada (col {base} não existe)")
+        print(f"⚠️  Seção '{sec['name']}' ignorada (coluna {base} não existe)")
         continue
 
+    count = 0
     for _, row in data_rows.iterrows():
         ativo_val = safe_cell(row, base, COL["ativo"], total_cols)
         tipo_val  = safe_cell(row, base, COL["tipo"],  total_cols)
 
+        # Pular linhas vazias
         if not ativo_val and not tipo_val:
+            continue
+
+        # Pular linhas que são cabeçalhos repetidos dentro dos dados
+        if tipo_val.lower() in SKIP_TIPO:
+            continue
+        if ativo_val.lower() in SKIP_ATIVO:
             continue
 
         owner_1, owner_2 = split_users(
@@ -74,12 +89,11 @@ for sec in SECTIONS:
             "mochila":       safe_cell(row, base, COL["mochila"],    total_cols),
             "criticidade":   safe_cell(row, base, COL["criticidade"],total_cols),
         })
+        count += 1
 
-print(f"📊 {len(records)} registros encontrados na planilha.")
-for sec in SECTIONS:
-    count = sum(1 for r in records if r["serie_id"] == sec["serie_id"])
-    if count:
-        print(f"   {sec['name']:35s} → {count} registros")
+    print(f"   {sec['name']:35s} → {count} registros")
+
+print(f"\n📊 Total: {len(records)} registros")
 
 conn = sqlite3.connect(DB_PATH)
 conn.execute("""
@@ -110,5 +124,5 @@ conn.executemany("""
 """, records)
 conn.commit()
 total = conn.execute("SELECT COUNT(*) FROM ativos").fetchone()[0]
-print(f"✅ {total} registros importados para '{DB_PATH}' com sucesso!")
+print(f"✅ {total} registros importados para '{DB_PATH}'")
 conn.close()
