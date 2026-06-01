@@ -4,6 +4,7 @@ import os
 
 app = Flask(__name__, template_folder="templates")
 
+# Caminho apontando diretamente para o volume definitivo do Railway
 DB_PATH = os.getenv("DB_PATH", "ativos.db")
 
 # Garante que a pasta do volume exista na nuvem antes de conectar
@@ -42,11 +43,15 @@ init_db()
 
 @app.route("/api/visualizar/<serie>", methods=["GET"])
 def visualizar(serie):
-    # Força o parâmetro recebido a se comportar como uma String limpa
-    serie_busca = str(serie).strip()
+    # Traduz o que o front-end envia ("2A", "3A") para o formato salvo pelo Excel ("2", "3")
+    serie_busca = str(serie).strip().upper()
+    if serie_busca == "2A":
+        serie_busca = "2"
+    elif serie_busca == "3A":
+        serie_busca = "3"
     
     conn = get_db()
-    # O CAST garante que o SQLite compare Texto com Texto sem conflitos
+    # CAST garante que o SQLite busque tratando a coluna rigidamente como Texto
     cursor = conn.execute("SELECT * FROM ativos WHERE CAST(serie_id AS TEXT) = ?", (serie_busca,))
     rows = cursor.fetchall()
     conn.close()
@@ -98,7 +103,12 @@ def registrar():
 
 @app.route("/api/remover/<serie>/<int:id>", methods=["DELETE"])
 def remover(serie, id):
-    serie_busca = str(serie).strip()
+    serie_busca = str(serie).strip().upper()
+    if serie_busca == "2A":
+        serie_busca = "2"
+    elif serie_busca == "3A":
+        serie_busca = "3"
+        
     conn = get_db()
     cur = conn.execute(
         "DELETE FROM ativos WHERE id=? AND CAST(serie_id AS TEXT)=?", (id, serie_busca)
