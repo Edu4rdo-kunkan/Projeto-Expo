@@ -46,7 +46,7 @@ def visualizar(serie):
     serie_busca = str(serie).strip()
     
     conn = get_db()
-    # CAST garante que a busca trate a coluna estrutural rigidamente como texto
+    # O CAST garante que o SQLite compare Texto com Texto sem conflitos
     cursor = conn.execute("SELECT * FROM ativos WHERE CAST(serie_id AS TEXT) = ?", (serie_busca,))
     rows = cursor.fetchall()
     conn.close()
