@@ -20,89 +20,77 @@ COL = {
     "criticidade": 8, "mochila": 9, "carregador": 10,
 }
 
-# Valores que indicam que a linha é cabeçalho ou lixo, não dado real
 SKIP_TIPO = {"tipo", "type", "", "nan"}
 SKIP_ATIVO = {"ativo", "asset", "nan"}
 
 def split_users(text):
-    text = str(text).strip() if pd.notna(text) else ""
-    for sep in [" & ", " / ", "&", "/"]:
+    text = str(text).strip()
+    if not text or text.lower() == "nan":
+        return "", ""
+    for sep in ["&", " e ", " E ", ";", ","]:
         if sep in text:
             parts = text.split(sep, 1)
             return parts[0].strip(), parts[1].strip()
     return text, ""
 
-def safe_cell(row, base, offset, total_cols):
-    idx = base + offset
-    if idx >= total_cols:
-        return ""
-    val = row.iloc[idx]
-    return str(val).strip() if pd.notna(val) else ""
+if not os.path.exists(EXCEL_FILE):
+    print(f"❌ Erro crítico: Arquivo '{EXCEL_FILE}' não encontrado no diretório atual.")
+    exit(1)
 
-# Lê planilha sem cabeçalho nenhum
-df = pd.read_excel(EXCEL_FILE, header=None)
-total_cols = len(df.columns)
-print(f"📋 Planilha: {total_cols} colunas, {len(df)} linhas totais")
+try:
+    df = pd.read_excel(EXCEL_FILE, header=None)
+except Exception as e:
+    print(f"❌ Erro ao abrir a planilha com pandas: {e}")
+    exit(1)
 
-# Pula as 2 primeiras linhas (linha 0 = cabeçalhos gerais, linha 1 = títulos das colunas)
-data_rows = df.iloc[2:].reset_index(drop=True)
-print(f"📋 Linhas de dados: {len(data_rows)}")
+print(f"📋 Planilha: {df.shape[1]} colunas, {df.shape[0]} linhas totais")
 
 records = []
 
 for sec in SECTIONS:
-    base = sec["start_col"]
-    if base >= total_cols:
-        print(f"⚠️  Seção '{sec['name']}' ignorada (coluna {base} não existe)")
+    sc = sec["start_col"]
+    name = sec["name"]
+    sid = sec["serie_id"]
+    
+    if sc >= df.shape[1]:
         continue
-
-    count = 0
-    for _, row in data_rows.iterrows():
-        ativo_val = safe_cell(row, base, COL["ativo"], total_cols)
-        tipo_val  = safe_cell(row, base, COL["tipo"],  total_cols)
-
-        # Pular linhas vazias
-        if not ativo_val and not tipo_val:
+        
+    count_sec = 0
+    for r in range(2, df.shape[0]):
+        val_ativo = str(df.iloc[r, sc + COL["ativo"]]).strip()
+        val_tipo  = str(df.iloc[r, sc + COL["tipo"]]).strip()
+        
+        if val_ativo.lower() in SKIP_ATIVO or val_tipo.lower() in SKIP_TIPO:
             continue
-
-        # Pular linhas que são cabeçalhos repetidos dentro dos dados
-        if tipo_val.lower() in SKIP_TIPO:
-            continue
-        if ativo_val.lower() in SKIP_ATIVO:
-            continue
-
-        owner_1, owner_2 = split_users(
-            row.iloc[base + COL["usuarios"]] if base + COL["usuarios"] < total_cols else ""
-        )
-
-        records.append({
-            "serie_id":      sec["serie_id"],
-            "owner_1":       owner_1,
-            "owner_2":       owner_2,
-            "id_computer":   ativo_val,
-            "id_carregator": safe_cell(row, base, COL["carregador"], total_cols),
-            "tipo":          tipo_val,
-            "marca":         safe_cell(row, base, COL["marca"],      total_cols),
-            "modelo":        safe_cell(row, base, COL["modelo"],     total_cols),
-            "local":         safe_cell(row, base, COL["local"],      total_cols),
-            "situacao":      safe_cell(row, base, COL["situacao"],   total_cols),
-            "mochila":       safe_cell(row, base, COL["mochila"],    total_cols),
-            "criticidade":   safe_cell(row, base, COL["criticidade"],total_cols),
-        })
-        count += 1
-
-    print(f"   {sec['name']:35s} → {count} registros")
-
-# ... (Mantenha igual a leitura do Pandas e processamento de 'records' lá em cima)
+            
+        u1, u2 = split_users(df.iloc[r, sc + COL["usuarios"]])
+        
+        rec = {
+            "serie_id": str(sid).strip(),
+            "owner_1": u1,
+            "owner_2": u2,
+            "id_computer": val_ativo,
+            "id_carregator": str(df.iloc[r, sc + COL["carregador"]]).strip(),
+            "tipo": val_tipo,
+            "marca": str(df.iloc[r, sc + COL["marca"]]).strip(),
+            "modelo": str(df.iloc[r, sc + COL["modelo"]]).strip(),
+            "local": str(df.iloc[r, sc + COL["local"]]).strip(),
+            "situacao": str(df.iloc[r, sc + COL["situacao"]]).strip(),
+            "mochila": str(df.iloc[r, sc + COL["mochila"]]).strip(),
+            "criticidade": str(df.iloc[r, sc + COL["criticidade"]]).strip(),
+        }
+        records.append(rec)
+        count_sec += 1
+    print(f"   {name:<35} → {count_sec} registros")
 
 print(f"\n📊 Total processado da planilha: {len(records)} registros")
 
-# Garante que a pasta exista antes de rodar o script
 db_dir = os.path.dirname(DB_PATH)
 if db_dir and not os.path.exists(db_dir):
     os.makedirs(db_dir, exist_ok=True)
 
 conn = sqlite3.connect(DB_PATH)
+
 conn.execute("""
     CREATE TABLE IF NOT EXISTS ativos (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,7 +109,6 @@ conn.execute("""
     )
 """)
 
-# 🔥 MODIFICAÇÃO SEGURA: Verifica se o banco já tem dados salvos no volume
 total_atual = conn.execute("SELECT COUNT(*) FROM ativos").fetchone()[0]
 
 if total_atual == 0:
