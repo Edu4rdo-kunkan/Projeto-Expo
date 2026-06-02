@@ -28,7 +28,6 @@ if not arquivo_encontrado:
     print("❌ Erro crítico: Nenhum arquivo de dados (Excel ou CSV) foi encontrado!")
     exit(1)
 
-# PADRONIZADO: Salvando com os IDs exatos que o site (HTML) usa
 SECTIONS = [
     {"start_col": 0,  "name": "COMPUTADORES 2°A",           "serie_id": "2A"},
     {"start_col": 14, "name": "COMPUTADORES 3°A",           "serie_id": "3A"},
@@ -127,19 +126,42 @@ conn.execute("""
     )
 """)
 
-# MODIFICAÇÃO AQUI: Limpa o banco antigo para aceitar as atualizações e novos ativos do Excel
-conn.execute("DELETE FROM ativos") 
+# ATUALIZAÇÃO INTELIGENTE (Não apaga mais a tabela inteira!)
+inseridos = 0
+atualizados = 0
 
-if len(records) > 0:
-    conn.executemany("""
-        INSERT INTO ativos
-            (serie_id, owner_1, owner_2, id_computer, id_carregator,
-             tipo, marca, modelo, local, situacao, mochila, criticidade)
-        VALUES
-            (:serie_id, :owner_1, :owner_2, :id_computer, :id_carregator,
-             :tipo, :marca, :modelo, :local, :situacao, :mochila, :criticidade)
-    """, records)
-    conn.commit()
-    print(f"✅ Sucesso! {len(records)} registros atualizados diretamente do Excel.")
+for rec in records:
+    # Verifica se esse ID de computador já existe nessa mesma categoria/turma
+    existe = conn.execute(
+        "SELECT id FROM ativos WHERE id_computer = ? AND serie_id = ?", 
+        (rec["id_computer"], rec["serie_id"])
+    ).fetchone()
+    
+    if existe:
+        # Se já existe, atualiza os dados dele vindo do Excel
+        conn.execute("""
+            UPDATE ativos SET
+                owner_1 = ?, owner_2 = ?, id_carregator = ?, tipo = ?, 
+                marca = ?, modelo = ?, local = ?, situacao = ?, mochila = ?, criticidade = ?
+            WHERE id_computer = ? AND serie_id = ?
+        """, (
+            rec["owner_1"], rec["owner_2"], rec["id_carregator"], rec["tipo"],
+            rec["marca"], rec["modelo"], rec["local"], rec["situacao"], rec["mochila"], rec["criticidade"],
+            rec["id_computer"], rec["serie_id"]
+        ))
+        atualizados += 1
+    else:
+        # Se não existe, insere como novo
+        conn.execute("""
+            INSERT INTO ativos
+                (serie_id, owner_1, owner_2, id_computer, id_carregator,
+                 tipo, marca, modelo, local, situacao, mochila, criticidade)
+            VALUES
+                (:serie_id, :owner_1, :owner_2, :id_computer, :id_carregator,
+                 :tipo, :marca, :modelo, :local, :situacao, :mochila, :criticidade)
+        """, rec)
+        inseridos += 1
 
+conn.commit()
+print(f"✅ Processamento concluído: {inseridos} novos adicionados | {atualizados} atualizados. Cadastros feitos pelo site foram preservados!")
 conn.close()
