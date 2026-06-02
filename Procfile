@@ -1,1 +1,1 @@
-web: python import_excel.py && gunicorn app:app
+web: python import_excel.py && python app.py
