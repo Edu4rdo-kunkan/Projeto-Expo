@@ -2,9 +2,43 @@ import pandas as pd
 import sqlite3
 import os
 
-EXCEL_FILE = os.getenv("EXCEL_FILE", "Dados.xlsx")
-DB_PATH    = os.getenv("DB_PATH",    "ativos.db")
+# Configuração do Banco de Dados (Lê a variável do Railway ou usa o padrão local)
+DB_PATH = os.getenv("DB_PATH", "ativos.db")
 
+# 🔍 AUTO-DETECTAR O ARQUIVO DE DADOS (Não precisa configurar nada!)
+# O código vai procurar na pasta por qualquer arquivo que comece com "dados" ou contenha "dados"
+arquivo_encontrado = None
+extensao_csv = False
+
+# Lista todos os arquivos na raiz do projeto para achar o seu
+for arquivo in os.listdir("."):
+    nome_minusculo = arquivo.lower()
+    # Procura um arquivo que tenha "dados" no nome e termine com .xlsx ou .csv
+    if "dados" in nome_minusculo and (nome_minusculo.endswith(".xlsx") or nome_minusculo.endswith(".csv")):
+        arquivo_encontrado = arquivo
+        if nome_minusculo.endswith(".csv"):
+            extensao_csv = True
+        break
+
+# Se não achou de forma inteligente, tenta os nomes padrões exatos
+if not arquivo_encontrado:
+    nomes_padrao = ["Dados.xlsx", "dados.xlsx", "Dados.xlsx - Planilha1.csv", "dados.csv"]
+    for nome in nomes_padrao:
+        if os.path.exists(nome):
+            arquivo_encontrado = nome
+            if nome.lower().endswith(".csv"):
+                extensao_csv = True
+            break
+
+# Se mesmo assim não achar nada, avisa o erro
+if not arquivo_encontrado:
+    print("❌ Erro crítico: Nenhum arquivo de dados (Excel ou CSV) foi encontrado na raiz do seu projeto!")
+    print("👉 Certifique-se de que o arquivo está na mesma pasta que o 'app.py' no seu GitHub.")
+    exit(1)
+
+print(f"✅ Arquivo de dados detectado automaticamente: '{arquivo_encontrado}'")
+
+# Definição das colunas e seções da sua planilha original
 SECTIONS = [
     {"start_col": 0,  "name": "COMPUTADORES 2°A",           "serie_id": "2"},
     {"start_col": 14, "name": "COMPUTADORES 3°A",           "serie_id": "3"},
@@ -33,24 +67,21 @@ def split_users(text):
             return parts[0].strip(), parts[1].strip()
     return text, ""
 
-if not os.path.exists(EXCEL_FILE):
-    print(f"❌ Erro crítico: Arquivo '{EXCEL_FILE}' não encontrado no diretório atual.")
-    exit(1)
-
+# Realiza a leitura correta dependendo do formato que o arquivo estiver
 try:
-    # Se o arquivo for .csv, muda para read_csv automaticamente para evitar quebras
-    if EXCEL_FILE.endswith('.csv'):
-        df = pd.read_csv(EXCEL_FILE, header=None)
+    if extensao_csv:
+        df = pd.read_csv(arquivo_encontrado, header=None)
     else:
-        df = pd.read_excel(EXCEL_FILE, header=None)
+        df = pd.read_excel(arquivo_encontrado, header=None)
 except Exception as e:
-    print(f"❌ Erro ao abrir a planilha com pandas: {e}")
+    print(f"❌ Erro ao abrir a planilha com o pandas: {e}")
     exit(1)
 
-print(f"📋 Planilha: {df.shape[1]} colunas, {df.shape[0]} linhas totais")
+print(f"📋 Estrutura da Planilha: {df.shape[1]} colunas, {df.shape[0]} linhas detectadas.")
 
 records = []
 
+# Processamento das seções
 for sec in SECTIONS:
     sc = sec["start_col"]
     name = sec["name"]
@@ -61,8 +92,12 @@ for sec in SECTIONS:
         
     count_sec = 0
     for r in range(2, df.shape[0]):
-        val_ativo = str(df.iloc[r, sc + COL["ativo"]]).strip()
-        val_tipo  = str(df.iloc[r, sc + COL["tipo"]]).strip()
+        try:
+            val_ativo = str(df.iloc[r, sc + COL["ativo"]]).strip()
+            val_tipo  = str(df.iloc[r, sc + COL["tipo"]]).strip()
+        except IndexError:
+            # Prevenção caso alguma linha específica tenha menos colunas
+            continue
         
         if val_ativo.lower() in SKIP_ATIVO or val_tipo.lower() in SKIP_TIPO:
             continue
@@ -85,16 +120,18 @@ for sec in SECTIONS:
         }
         records.append(rec)
         count_sec += 1
-    print(f"   {name:<35} → {count_sec} registros")
+    print(f"   {name:<35} → {count_sec} registros lidos")
 
-print(f"\n📊 Total processado da planilha: {len(records)} registros")
+print(f"\n📊 Total extraído da planilha: {len(records)} registros prontos para o banco.")
 
+# Garante que a pasta do volume (/data) exista no Railway antes de criar o banco
 db_dir = os.path.dirname(DB_PATH)
 if db_dir and not os.path.exists(db_dir):
     os.makedirs(db_dir, exist_ok=True)
 
 conn = sqlite3.connect(DB_PATH)
 
+# Criação da tabela caso ela não exista
 conn.execute("""
     CREATE TABLE IF NOT EXISTS ativos (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,21 +150,26 @@ conn.execute("""
     )
 """)
 
+# Verifica se o banco de dados no volume já tem registros salvos
 total_atual = conn.execute("SELECT COUNT(*) FROM ativos").fetchone()[0]
 
 if total_atual == 0:
-    print("🔄 O volume está vazio. Populando banco de dados pela primeira vez com o Excel...")
-    conn.executemany("""
-        INSERT INTO ativos
-            (serie_id, owner_1, owner_2, id_computer, id_carregator,
-             tipo, marca, modelo, local, situacao, mochila, criticidade)
-        VALUES
-            (:serie_id, :owner_1, :owner_2, :id_computer, :id_carregator,
-             :tipo, :marca, :modelo, :local, :situacao, :mochila, :criticidade)
-    """, records)
-    conn.commit()
-    print("✅ Dados da planilha importados com sucesso para dentro do Volume!")
+    if len(records) > 0:
+        print("🔄 O seu volume está vazio! Populando banco de dados pela primeira vez com o arquivo...")
+        conn.executemany("""
+            INSERT INTO ativos
+                (serie_id, owner_1, owner_2, id_computer, id_carregator,
+                 tipo, marca, modelo, local, situacao, mochila, criticidade)
+            VALUES
+                (:serie_id, :owner_1, :owner_2, :id_computer, :id_carregator,
+                 :tipo, :marca, :modelo, :local, :situacao, :mochila, :criticidade)
+        """, records)
+        conn.commit()
+        print("✅ Dados importados com sucesso para dentro do Volume persistentemente!")
+    else:
+        print("⚠️ Nenhum dado válido foi processado do arquivo de dados.")
 else:
-    print(f"⚠️ O volume já possui {total_atual} registros. Importação do Excel ignorada para proteger suas alterações online.")
+    print(f"⚠️ Atenção: O seu volume já possui {total_atual} registros.")
+    print("   A importação automática foi pulada para proteger as alterações que você fez online no site!")
 
 conn.close()
