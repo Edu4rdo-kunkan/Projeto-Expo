@@ -43,7 +43,6 @@ init_db()
 
 @app.route("/api/visualizar/<serie>", methods=["GET"])
 def visualizar(serie):
-    # Traduz o que o front-end envia ("2A", "3A") para o formato salvo pelo Excel ("2", "3")
     serie_busca = str(serie).strip().upper()
     if serie_busca == "2A":
         serie_busca = "2"
@@ -51,7 +50,6 @@ def visualizar(serie):
         serie_busca = "3"
     
     conn = get_db()
-    # CAST garante que o SQLite busque tratando a coluna rigidamente como Texto
     cursor = conn.execute("SELECT * FROM ativos WHERE CAST(serie_id AS TEXT) = ?", (serie_busca,))
     rows = cursor.fetchall()
     conn.close()
@@ -62,10 +60,6 @@ def visualizar(serie):
 @app.route("/")
 def index():
     return render_template("index.html")
-
-@app.route("/<path:path>")
-def send_static(path):
-    return send_from_directory(".", path)
 
 @app.route("/api/registrar", methods=["POST"])
 def registrar():
@@ -121,5 +115,15 @@ def remover(serie, id):
 
     return jsonify({"ok": True, "msg": "Ativo removido com sucesso!"})
 
+# Rota genérica modificada para não interceptar as rotas da API de forma errada
+@app.route("/<path:path>")
+def send_static(path):
+    # Se o arquivo solicitado existir na pasta raiz, ele envia. Caso contrário, manda 404 de forma limpa.
+    if os.path.exists(path) and os.path.isfile(path):
+        return send_from_directory(".", path)
+    return jsonify({"error": "Not Found"}), 404
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    # O Railway exige dinamicamente usar a variável de ambiente PORT
+    port = int(os.getenv("PORT", 8080))
+    app.run(host="0.0.0.0", port=port, debug=False)
