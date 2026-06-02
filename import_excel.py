@@ -28,7 +28,7 @@ if not arquivo_encontrado:
     print("❌ Erro crítico: Nenhum arquivo de dados (Excel ou CSV) foi encontrado!")
     exit(1)
 
-# PADRONIZADO: Agora salvamos exatamente como "2A" e "3A"
+# PADRONIZADO: Salvando com os IDs exatos que o site (HTML) usa
 SECTIONS = [
     {"start_col": 0,  "name": "COMPUTADORES 2°A",           "serie_id": "2A"},
     {"start_col": 14, "name": "COMPUTADORES 3°A",           "serie_id": "3A"},
@@ -127,8 +127,7 @@ conn.execute("""
     )
 """)
 
-# Força a limpeza se o banco antigo estiver com a estrutura de nomes velha
-total_atual = conn.execute("SELECT COUNT(*) FROM ativos").fetchone()[0]
+# MODIFICAÇÃO AQUI: Limpa o banco antigo para aceitar as atualizações e novos ativos do Excel
 conn.execute("DELETE FROM ativos") 
 
 if len(records) > 0:
@@ -141,6 +140,6 @@ if len(records) > 0:
              :tipo, :marca, :modelo, :local, :situacao, :mochila, :criticidade)
     """, records)
     conn.commit()
-    print(f"✅ Sucesso! {len(records)} registros importados com os nomes exatos do site.")
+    print(f"✅ Sucesso! {len(records)} registros atualizados diretamente do Excel.")
 
 conn.close()
