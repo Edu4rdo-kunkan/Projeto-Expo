@@ -3,11 +3,8 @@ import sqlite3
 import os
 
 app = Flask(__name__, template_folder="templates")
-
-# Caminho apontando diretamente para o volume definitivo do Railway
 DB_PATH = os.getenv("DB_PATH", "ativos.db")
 
-# Garante que a pasta do volume exista na nuvem antes de conectar
 db_dir = os.path.dirname(DB_PATH)
 if db_dir and not os.path.exists(db_dir):
     os.makedirs(db_dir, exist_ok=True)
@@ -17,45 +14,18 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def init_db():
-    conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS ativos (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            serie_id      TEXT    NOT NULL,
-            owner_1       TEXT    NOT NULL DEFAULT '',
-            owner_2       TEXT    NOT NULL DEFAULT '',
-            id_computer   TEXT    NOT NULL DEFAULT '',
-            id_carregator TEXT    NOT NULL DEFAULT '',
-            tipo          TEXT    NOT NULL DEFAULT '',
-            marca         TEXT    NOT NULL DEFAULT '',
-            modelo        TEXT    NOT NULL DEFAULT '',
-            local         TEXT    NOT NULL DEFAULT '',
-            situacao      TEXT    NOT NULL DEFAULT '',
-            mochila       TEXT    NOT NULL DEFAULT '',
-            criticidade   TEXT    NOT NULL DEFAULT ''
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-init_db()
-
 @app.route("/api/visualizar/<serie>", methods=["GET"])
 def visualizar(serie):
+    # Sem gambiarra de conversão: busca o termo exato enviado pelo HTML
     serie_busca = str(serie).strip().upper()
-    if serie_busca == "2A":
-        serie_busca = "2"
-    elif serie_busca == "3A":
-        serie_busca = "3"
     
     conn = get_db()
-    cursor = conn.execute("SELECT * FROM ativos WHERE CAST(serie_id AS TEXT) = ?", (serie_busca,))
-    rows = cursor.fetchall()
+    ativos = conn.execute(
+        "SELECT * FROM ativos WHERE UPPER(CAST(serie_id AS TEXT)) = ?", (serie_busca,)
+    ).fetchall()
     conn.close()
 
-    ativos_list = [dict(row) for row in rows]
-    return jsonify(ativos_list)
+    return jsonify([dict(ix) for ix in ativos])
 
 @app.route("/")
 def index():
@@ -77,7 +47,7 @@ def registrar():
              tipo, marca, modelo, local, situacao, mochila, criticidade)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
-        data["serie_id"].strip(),
+        data["serie_id"].strip().upper(),
         data["owner_1"].strip(),
         data.get("owner_2", "").strip(),
         data["id_computer"].strip(),
@@ -98,20 +68,16 @@ def registrar():
 @app.route("/api/remover/<serie>/<int:id>", methods=["DELETE"])
 def remover(serie, id):
     serie_busca = str(serie).strip().upper()
-    if serie_busca == "2A":
-        serie_busca = "2"
-    elif serie_busca == "3A":
-        serie_busca = "3"
         
     conn = get_db()
     cur = conn.execute(
-        "DELETE FROM ativos WHERE id=? AND CAST(serie_id AS TEXT)=?", (id, serie_busca)
+        "DELETE FROM ativos WHERE id=? AND UPPER(CAST(serie_id AS TEXT))=?", (id, serie_busca)
     )
     conn.commit()
     conn.close()
 
     if cur.rowcount == 0:
-        return jsonify({"ok": False, "msg": "Ativo não encontrado ou já removido."})
+        return jsonify({"ok": False, "msg": "Ativo não encontrado."})
 
     return jsonify({"ok": True, "msg": "Ativo removido com sucesso!"})
 
@@ -122,6 +88,5 @@ def send_static(path):
     return jsonify({"error": "Not Found"}), 404
 
 if __name__ == "__main__":
-    # Respeita a porta do Railway. Se rodar local, usa a sua porta 8080.
     port = int(os.getenv("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)
