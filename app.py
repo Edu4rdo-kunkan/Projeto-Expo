@@ -115,15 +115,13 @@ def remover(serie, id):
 
     return jsonify({"ok": True, "msg": "Ativo removido com sucesso!"})
 
-# Rota genérica modificada para não interceptar as rotas da API de forma errada
 @app.route("/<path:path>")
 def send_static(path):
-    # Se o arquivo solicitado existir na pasta raiz, ele envia. Caso contrário, manda 404 de forma limpa.
     if os.path.exists(path) and os.path.isfile(path):
         return send_from_directory(".", path)
     return jsonify({"error": "Not Found"}), 404
 
 if __name__ == "__main__":
-    # O Railway exige dinamicamente usar a variável de ambiente PORT
+    # Respeita a porta do Railway. Se rodar local, usa a sua porta 8080.
     port = int(os.getenv("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)
