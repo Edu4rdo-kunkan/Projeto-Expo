@@ -7,7 +7,6 @@ DB_PATH = os.getenv("DB_PATH", "ativos.db")
 arquivo_encontrado = None
 extensao_csv = False
 
-# Busca automática por arquivos que contenham "dados" na pasta raiz
 for arquivo in os.listdir("."):
     nome_minusculo = arquivo.lower()
     if "dados" in nome_minusculo and (nome_minusculo.endswith(".xlsx") or nome_minusculo.endswith(".csv")):
@@ -26,14 +25,13 @@ if not arquivo_encontrado:
             break
 
 if not arquivo_encontrado:
-    print("❌ Erro crítico: Nenhum arquivo de dados (Excel ou CSV) foi encontrado na raiz do seu projeto!")
+    print("❌ Erro crítico: Nenhum arquivo de dados (Excel ou CSV) foi encontrado!")
     exit(1)
 
-print(f"✅ Arquivo de dados detectado automaticamente: '{arquivo_encontrado}'")
-
+# PADRONIZADO: Agora salvamos exatamente como "2A" e "3A"
 SECTIONS = [
-    {"start_col": 0,  "name": "COMPUTADORES 2°A",           "serie_id": "2"},
-    {"start_col": 14, "name": "COMPUTADORES 3°A",           "serie_id": "3"},
+    {"start_col": 0,  "name": "COMPUTADORES 2°A",           "serie_id": "2A"},
+    {"start_col": 14, "name": "COMPUTADORES 3°A",           "serie_id": "3A"},
     {"start_col": 28, "name": "SETUPS",                     "serie_id": "SETUPS"},
     {"start_col": 42, "name": "COMPUTADORES DOS CARRINHOS", "serie_id": "CARRINHOS"},
     {"start_col": 56, "name": "TABLETS",                    "serie_id": "TABLETS"},
@@ -65,10 +63,8 @@ try:
     else:
         df = pd.read_excel(arquivo_encontrado, header=None)
 except Exception as e:
-    print(f"❌ Erro ao abrir a planilha com o pandas: {e}")
+    print(f"❌ Erro ao abrir a planilha: {e}")
     exit(1)
-
-print(f"📋 Estrutura da Planilha: {df.shape[1]} colunas, {df.shape[0]} linhas detectadas.")
 
 records = []
 
@@ -80,7 +76,6 @@ for sec in SECTIONS:
     if sc >= df.shape[1]:
         continue
         
-    count_sec = 0
     for r in range(2, df.shape[0]):
         try:
             val_ativo = str(df.iloc[r, sc + COL["ativo"]]).strip()
@@ -94,7 +89,7 @@ for sec in SECTIONS:
         u1, u2 = split_users(df.iloc[r, sc + COL["usuarios"]])
         
         rec = {
-            "serie_id": str(sid).strip(),
+            "serie_id": str(sid).strip().upper(),
             "owner_1": u1,
             "owner_2": u2,
             "id_computer": val_ativo,
@@ -108,17 +103,12 @@ for sec in SECTIONS:
             "criticidade": str(df.iloc[r, sc + COL["criticidade"]]).strip(),
         }
         records.append(rec)
-        count_sec += 1
-    print(f"   {name:<35} → {count_sec} registros lidos")
-
-print(f"\n📊 Total extraído da planilha: {len(records)} registros prontos para o banco.")
 
 db_dir = os.path.dirname(DB_PATH)
 if db_dir and not os.path.exists(db_dir):
     os.makedirs(db_dir, exist_ok=True)
 
 conn = sqlite3.connect(DB_PATH)
-
 conn.execute("""
     CREATE TABLE IF NOT EXISTS ativos (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,24 +127,20 @@ conn.execute("""
     )
 """)
 
+# Força a limpeza se o banco antigo estiver com a estrutura de nomes velha
 total_atual = conn.execute("SELECT COUNT(*) FROM ativos").fetchone()[0]
+conn.execute("DELETE FROM ativos") 
 
-if total_atual == 0:
-    if len(records) > 0:
-        print("🔄 O seu volume está vazio! Populando banco de dados pela primeira vez com o arquivo...")
-        conn.executemany("""
-            INSERT INTO ativos
-                (serie_id, owner_1, owner_2, id_computer, id_carregator,
-                 tipo, marca, modelo, local, situacao, mochila, criticidade)
-            VALUES
-                (:serie_id, :owner_1, :owner_2, :id_computer, :id_carregator,
-                 :tipo, :marca, :modelo, :local, :situacao, :mochila, :criticidade)
-        """, records)
-        conn.commit()
-        print("✅ Dados importados com sucesso para dentro do Volume persistentemente!")
-    else:
-        print("⚠️ Nenhum dado válido foi processado do arquivo de dados.")
-else:
-    print(f"⚠️ Atenção: O seu volume já possui {total_atual} registros. Importação pulada.")
+if len(records) > 0:
+    conn.executemany("""
+        INSERT INTO ativos
+            (serie_id, owner_1, owner_2, id_computer, id_carregator,
+             tipo, marca, modelo, local, situacao, mochila, criticidade)
+        VALUES
+            (:serie_id, :owner_1, :owner_2, :id_computer, :id_carregator,
+             :tipo, :marca, :modelo, :local, :situacao, :mochila, :criticidade)
+    """, records)
+    conn.commit()
+    print(f"✅ Sucesso! {len(records)} registros importados com os nomes exatos do site.")
 
 conn.close()
