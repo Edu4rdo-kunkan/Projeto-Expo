@@ -531,7 +531,6 @@
 </head>
 <body class="loading">
 
-<!-- PAGE TRANSITION OVERLAY -->
 <div id="page-transition">
   <div class="pt-curtain">
     <div class="pt-stripe"></div>
@@ -540,7 +539,6 @@
   </div>
 </div>
 
-<!-- LOADER -->
 <div id="loader">
   <div class="loader-logo">Ativos Escolares</div>
   <div class="loader-grid">
@@ -554,14 +552,12 @@
   <div class="loader-label">Carregando sistema</div>
 </div>
 
-<!-- HEADER -->
 <header>
   <div class="header-badge">Sistema Operacional</div>
   <h1 class="header-title">Tabela de<br>Ativos Escolares</h1>
   <p class="header-sub">Gerencie equipamentos por turma. Registre, visualize e remova ativos com facilidade.</p>
 </header>
 
-<!-- NAVEGAÇÃO PRINCIPAL -->
 <nav id="main-nav">
   <div class="nav-indicator" id="nav-indicator"></div>
   <button class="tab active" onclick="showTab('registrar', this)">Registrar</button>
@@ -569,7 +565,6 @@
   <button class="tab"        onclick="showTab('remover', this)">Remover</button>
 </nav>
 
-<!-- ══ PAINEL: REGISTRAR ══ -->
 <div id="panel-registrar" class="panel active">
   <div class="card">
     <div class="section-title">Registrar novo ativo</div>
@@ -581,8 +576,8 @@
           <label>Categoria / Turma</label>
           <select id="reg-serie">
             <option value="">— Selecione —</option>
-            <option value="2">💻 2º Ano (2A)</option>
-            <option value="3">💻 3º Ano (3A)</option>
+            <option value="2A">💻 2º Ano (2A)</option>
+            <option value="3A">💻 3º Ano (3A)</option>
             <option value="SETUPS">🖥️ Setups</option>
             <option value="CARRINHOS">🛒 Carrinhos</option>
             <option value="TABLETS">📱 Tablets</option>
@@ -697,13 +692,12 @@
   </div>
 </div>
 
-<!-- ══ PAINEL: VISUALIZAR ══ -->
 <div id="panel-visualizar" class="panel">
   <div class="card">
     <div class="section-title">Ativos registrados</div>
     <div class="serie-toggle">
-      <button class="stab active" onclick="loadAtivos('2', this)"><span class="stab-icon">💻</span>2A</button>
-      <button class="stab"        onclick="loadAtivos('3', this)"><span class="stab-icon">💻</span>3A</button>
+      <button class="stab active" onclick="loadAtivos('2A', this)"><span class="stab-icon">💻</span>2A</button>
+      <button class="stab"        onclick="loadAtivos('3A', this)"><span class="stab-icon">💻</span>3A</button>
       <button class="stab"        onclick="loadAtivos('SETUPS', this)"><span class="stab-icon">🖥️</span>Setups</button>
       <button class="stab"        onclick="loadAtivos('CARRINHOS', this)"><span class="stab-icon">🛒</span>Carrinhos</button>
       <button class="stab"        onclick="loadAtivos('TABLETS', this)"><span class="stab-icon">📱</span>Tablets</button>
@@ -713,13 +707,12 @@
   </div>
 </div>
 
-<!-- ══ PAINEL: REMOVER ══ -->
 <div id="panel-remover" class="panel">
   <div class="card">
-    <div class="section-title">Remover ativo</div>
+    <div class="section-title">Remove ativo</div>
     <div class="serie-toggle">
-      <button class="stab active" onclick="loadRemover('2', this)"><span class="stab-icon">💻</span>2A</button>
-      <button class="stab"        onclick="loadRemover('3', this)"><span class="stab-icon">💻</span>3A</button>
+      <button class="stab active" onclick="loadRemover('2A', this)"><span class="stab-icon">💻</span>2A</button>
+      <button class="stab"        onclick="loadRemover('3A', this)"><span class="stab-icon">💻</span>3A</button>
       <button class="stab"        onclick="loadRemover('SETUPS', this)"><span class="stab-icon">🖥️</span>Setups</button>
       <button class="stab"        onclick="loadRemover('CARRINHOS', this)"><span class="stab-icon">🛒</span>Carrinhos</button>
       <button class="stab"        onclick="loadRemover('TABLETS', this)"><span class="stab-icon">📱</span>Tablets</button>
@@ -798,10 +791,11 @@
   }
 
   /* ── SHOW TAB ────────────────────────────────────────── */
-  let vizSerie = "2", remSerie = "2";
+  // CORRIGIDO: Inicializa com '2A' ao invés de '2'
+  let vizSerie = "2A", remSerie = "2A";
 
   const LABELS = {
-    "2":"2º Ano (2A)", "3":"3º Ano (3A)",
+    "2A":"2º Ano (2A)", "3A":"3º Ano (3A)",
     "SETUPS":"Setups", "CARRINHOS":"Carrinhos",
     "TABLETS":"Tablets", "TELEVISAO":"Televisão"
   };
@@ -863,7 +857,7 @@
 
   /* ── BUILD TABLE ─────────────────────────────────────── */
   function buildTable(ativos, serie, withRemove = false) {
-    if (!ativos.length) {
+    if (!ativos || !ativos.length) {
       return `<div class="empty-msg">Nenhum ativo registrado em ${LABELS[serie]||serie}</div>`;
     }
     const label = LABELS[serie] || serie;
@@ -875,15 +869,15 @@
         ? `<td><button class="btn btn-danger" onclick="remover('${serie}', ${a.id})">Remover</button></td>`
         : '';
       return `<tr style="animation:rowIn 0.35s cubic-bezier(0.22,1,0.36,1) ${0.03 + i * 0.03}s both">
-        <td><span class="badge badge-num">${String(a.num).padStart(2,'0')}</span></td>
+        <td><span class="badge badge-num">${String(i + 1).padStart(2,'0')}</span></td>
         <td>${a.owner_1 || '—'}</td>
         <td>${a.owner_2 || '—'}</td>
         <td>${badgeTipo(a.tipo)}</td>
         <td>${a.marca || '—'}</td>
         <td>${a.modelo || '—'}</td>
         <td>${a.local || '—'}</td>
-        <td><span class="badge">${a.nb || '—'}</span></td>
-        <td><span class="badge">${a.car || '—'}</span></td>
+        <td><span class="badge">${a.id_computer || '—'}</span></td>
+        <td><span class="badge">${a.id_carregator || '—'}</span></td>
         <td>${badgeSituacao(a.situacao)}</td>
         <td>${badgeSim(a.mochila)}</td>
         <td>${badgeSim(a.criticidade)}</td>
@@ -919,13 +913,18 @@
     }
     const res  = await fetch('/api/visualizar/' + serie);
     const data = await res.json();
+    
+    // CORRIGIDO: O app.py retorna uma lista direta em formato JSON (ex: [ { ... }, { ... } ])
+    // ao invés de um objeto envelopado com .ativos, tratamos os dados aqui de forma limpa.
+    const listaAtivos = Array.isArray(data) ? data : (data.ativos || []);
+
     const container = document.getElementById('table-container');
     // Fade out old content
     container.style.opacity = '0';
     container.style.transform = 'translateY(6px)';
     container.style.transition = 'opacity 0.18s ease, transform 0.18s ease';
     setTimeout(() => {
-      container.innerHTML = buildTable(data.ativos, serie, false);
+      container.innerHTML = buildTable(listaAtivos, serie, false);
       container.style.opacity = '1';
       container.style.transform = 'translateY(0)';
     }, 180);
@@ -939,12 +938,16 @@
     }
     const res  = await fetch('/api/visualizar/' + serie);
     const data = await res.json();
+    
+    // CORRIGIDO: Mesmo tratamento seguro para a lista da rota de remoção
+    const listaAtivos = Array.isArray(data) ? data : (data.ativos || []);
+
     const container = document.getElementById('remove-container');
     container.style.opacity = '0';
     container.style.transform = 'translateY(6px)';
     container.style.transition = 'opacity 0.18s ease, transform 0.18s ease';
     setTimeout(() => {
-      container.innerHTML = buildTable(data.ativos, serie, true);
+      container.innerHTML = buildTable(listaAtivos, serie, true);
       container.style.opacity = '1';
       container.style.transform = 'translateY(0)';
     }, 180);
