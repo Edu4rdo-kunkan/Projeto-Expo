@@ -38,7 +38,11 @@ if not os.path.exists(EXCEL_FILE):
     exit(1)
 
 try:
-    df = pd.read_excel(EXCEL_FILE, header=None)
+    # Se o arquivo for .csv, muda para read_csv automaticamente para evitar quebras
+    if EXCEL_FILE.endswith('.csv'):
+        df = pd.read_csv(EXCEL_FILE, header=None)
+    else:
+        df = pd.read_excel(EXCEL_FILE, header=None)
 except Exception as e:
     print(f"❌ Erro ao abrir a planilha com pandas: {e}")
     exit(1)
