@@ -2,25 +2,20 @@ import pandas as pd
 import sqlite3
 import os
 
-# Configuração do Banco de Dados (Lê a variável do Railway ou usa o padrão local)
 DB_PATH = os.getenv("DB_PATH", "ativos.db")
 
-# 🔍 AUTO-DETECTAR O ARQUIVO DE DADOS (Não precisa configurar nada!)
-# O código vai procurar na pasta por qualquer arquivo que comece com "dados" ou contenha "dados"
 arquivo_encontrado = None
 extensao_csv = False
 
-# Lista todos os arquivos na raiz do projeto para achar o seu
+# Busca automática por arquivos que contenham "dados" na pasta raiz
 for arquivo in os.listdir("."):
     nome_minusculo = arquivo.lower()
-    # Procura um arquivo que tenha "dados" no nome e termine com .xlsx ou .csv
     if "dados" in nome_minusculo and (nome_minusculo.endswith(".xlsx") or nome_minusculo.endswith(".csv")):
         arquivo_encontrado = arquivo
         if nome_minusculo.endswith(".csv"):
             extensao_csv = True
         break
 
-# Se não achou de forma inteligente, tenta os nomes padrões exatos
 if not arquivo_encontrado:
     nomes_padrao = ["Dados.xlsx", "dados.xlsx", "Dados.xlsx - Planilha1.csv", "dados.csv"]
     for nome in nomes_padrao:
@@ -30,15 +25,12 @@ if not arquivo_encontrado:
                 extensao_csv = True
             break
 
-# Se mesmo assim não achar nada, avisa o erro
 if not arquivo_encontrado:
     print("❌ Erro crítico: Nenhum arquivo de dados (Excel ou CSV) foi encontrado na raiz do seu projeto!")
-    print("👉 Certifique-se de que o arquivo está na mesma pasta que o 'app.py' no seu GitHub.")
     exit(1)
 
 print(f"✅ Arquivo de dados detectado automaticamente: '{arquivo_encontrado}'")
 
-# Definição das colunas e seções da sua planilha original
 SECTIONS = [
     {"start_col": 0,  "name": "COMPUTADORES 2°A",           "serie_id": "2"},
     {"start_col": 14, "name": "COMPUTADORES 3°A",           "serie_id": "3"},
@@ -67,7 +59,6 @@ def split_users(text):
             return parts[0].strip(), parts[1].strip()
     return text, ""
 
-# Realiza a leitura correta dependendo do formato que o arquivo estiver
 try:
     if extensao_csv:
         df = pd.read_csv(arquivo_encontrado, header=None)
@@ -81,7 +72,6 @@ print(f"📋 Estrutura da Planilha: {df.shape[1]} colunas, {df.shape[0]} linhas 
 
 records = []
 
-# Processamento das seções
 for sec in SECTIONS:
     sc = sec["start_col"]
     name = sec["name"]
@@ -96,7 +86,6 @@ for sec in SECTIONS:
             val_ativo = str(df.iloc[r, sc + COL["ativo"]]).strip()
             val_tipo  = str(df.iloc[r, sc + COL["tipo"]]).strip()
         except IndexError:
-            # Prevenção caso alguma linha específica tenha menos colunas
             continue
         
         if val_ativo.lower() in SKIP_ATIVO or val_tipo.lower() in SKIP_TIPO:
@@ -124,14 +113,12 @@ for sec in SECTIONS:
 
 print(f"\n📊 Total extraído da planilha: {len(records)} registros prontos para o banco.")
 
-# Garante que a pasta do volume (/data) exista no Railway antes de criar o banco
 db_dir = os.path.dirname(DB_PATH)
 if db_dir and not os.path.exists(db_dir):
     os.makedirs(db_dir, exist_ok=True)
 
 conn = sqlite3.connect(DB_PATH)
 
-# Criação da tabela caso ela não exista
 conn.execute("""
     CREATE TABLE IF NOT EXISTS ativos (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,7 +137,6 @@ conn.execute("""
     )
 """)
 
-# Verifica se o banco de dados no volume já tem registros salvos
 total_atual = conn.execute("SELECT COUNT(*) FROM ativos").fetchone()[0]
 
 if total_atual == 0:
@@ -169,7 +155,6 @@ if total_atual == 0:
     else:
         print("⚠️ Nenhum dado válido foi processado do arquivo de dados.")
 else:
-    print(f"⚠️ Atenção: O seu volume já possui {total_atual} registros.")
-    print("   A importação automática foi pulada para proteger as alterações que você fez online no site!")
+    print(f"⚠️ Atenção: O seu volume já possui {total_atual} registros. Importação pulada.")
 
 conn.close()
