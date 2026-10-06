@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Entrar · {{ escola_sigla }}</title>
+<meta name="theme-color" content="#0E1330">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='3' y='3' width='42' height='42' rx='13' fill='%23FFC233'/%3E%3Ccircle cx='15' cy='15' r='4.2' fill='%230E1330'/%3E%3Crect x='24' y='12.5' width='13' height='5' rx='2.5' fill='%230E1330'/%3E%3Crect x='11' y='26' width='26' height='4.5' rx='2.25' fill='%230E1330'/%3E%3Crect x='11' y='34' width='16' height='4.5' rx='2.25' fill='%230E1330' opacity='.6'/%3E%3C/svg%3E">
+<script src="{{ url_for('static', filename='js/theme.js', v=asset_v) }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css', v=asset_v) }}">
+<noscript><style>#splash{display:none!important}</style></noscript>
+</head>
+<body>
+{% include '_sprite.html' %}
+
+<div id="splash" role="status" aria-live="polite">
+  <div class="splash-in">
+    <svg class="splash-mark" aria-hidden="true"><use href="#logo"/></svg>
+    <div class="splash-name">Ativos Escolares</div>
+    <div class="splash-school">{{ escola_nome }}</div>
+    <div class="splash-msg" id="splash-msg">Carregando sistema…</div>
+    <div class="splash-bar"><i></i></div>
+  </div>
+</div>
+
+<main class="login-page">
+  <section class="login-hero" aria-hidden="true">
+    <div class="brand">
+      <svg class="brand-mark"><use href="#logo"/></svg>
+      <div><div class="brand-name">Ativos Escolares</div><div class="brand-sub">{{ escola_sigla }}</div></div>
+    </div>
+    <div class="hero-tags">
+      <div class="hero-tag">38 <small>Notebook</small></div>
+      <div class="hero-tag">02 <small>Tablet</small></div>
+      <div class="hero-tag">11 <small>Televisão</small></div>
+    </div>
+    <div class="hero-copy">
+      <h1>Cada equipamento da escola, com etiqueta e histórico.</h1>
+      <p>Veja onde está cada notebook, tablet e TV, quem está usando e o que mudou, sem planilha solta.</p>
+    </div>
+  </section>
+
+  <section class="login-side">
+    <div class="login-card">
+      <div class="login-school"><svg class="ic sm"><use href="#i-shield"/></svg>{{ escola_nome }}</div>
+      <h2>Entrar no sistema</h2>
+      <p class="lead">Use sua conta de administrador para gerenciar os equipamentos.</p>
+
+      <div id="login-alert" aria-live="polite">
+        {% if erro %}
+          <div class="alert err" role="alert"><svg class="ic"><use href="#i-alert"/></svg><span>{{ erro }}</span></div>
+        {% elif aviso %}
+          <div class="alert warn"><svg class="ic"><use href="#i-info"/></svg><span>{{ aviso }}</span></div>
+        {% endif %}
+      </div>
+
+      <form method="POST" action="{{ url_for('login_page') }}" id="login-form" autocomplete="on" novalidate>
+        <div class="field">
+          <label for="username">Usuário</label>
+          <input class="input" type="text" id="username" name="username" placeholder="Seu usuário" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Senha</label>
+          <div class="pw-wrap">
+            <input class="input" type="password" id="password" name="password" placeholder="Sua senha" autocomplete="current-password" required>
+            <button type="button" class="icon-btn" id="pw-toggle" aria-label="Mostrar senha"><svg class="ic"><use href="#i-eye"/></svg></button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">Entrar</button>
+      </form>
+
+      <div class="divider">ou</div>
+      <a class="btn btn-secondary btn-block" href="{{ url_for('entrar_visitante') }}">
+        <svg class="ic"><use href="#i-eye"/></svg>Entrar como visitante
+      </a>
+      <p class="guest-note">Visitantes consultam tudo, mas não alteram nada.</p>
+    </div>
+  </section>
+</main>
+
+<script src="{{ url_for('static', filename='js/login.js', v=asset_v) }}"></script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Ativos Escolares · {{ escola_sigla }}</title>
+<meta name="theme-color" content="#0E1330">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='3' y='3' width='42' height='42' rx='13' fill='%23FFC233'/%3E%3Ccircle cx='15' cy='15' r='4.2' fill='%230E1330'/%3E%3Crect x='24' y='12.5' width='13' height='5' rx='2.5' fill='%230E1330'/%3E%3Crect x='11' y='26' width='26' height='4.5' rx='2.25' fill='%230E1330'/%3E%3Crect x='11' y='34' width='16' height='4.5' rx='2.25' fill='%230E1330' opacity='.6'/%3E%3C/svg%3E">
+<script src="{{ url_for('static', filename='js/theme.js', v=asset_v) }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css', v=asset_v) }}">
+<noscript><style>#splash{display:none!important}</style></noscript>
+</head>
+<body data-role="{{ role or '' }}" data-user="{{ username or '' }}" data-open="{{ abrir_id or '' }}" data-escola="{{ escola_nome }}" data-escola-sigla="{{ escola_sigla }}" data-ia="{{ '1' if assistente_ia else '' }}">
+{% include '_sprite.html' %}
+
+<div id="splash" role="status" aria-live="polite">
+  <div class="splash-in">
+    <svg class="splash-mark" aria-hidden="true"><use href="#logo"/></svg>
+    <div class="splash-name">Ativos Escolares</div>
+    <div class="splash-school">{{ escola_nome }}</div>
+    <div class="splash-msg" id="splash-msg">Carregando sistema…</div>
+    <div class="splash-bar"><i></i></div>
+    <div class="splash-err">
+      <p id="splash-err-msg">Não foi possível carregar o sistema.</p>
+      <button class="btn btn-signal" id="splash-retry" type="button">Tentar novamente</button>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app" hidden>
+  <aside class="sidebar" id="sidebar" aria-label="Menu principal">
+    <div class="brand">
+      <svg class="brand-mark" aria-hidden="true"><use href="#logo"/></svg>
+      <div><div class="brand-name">Ativos Escolares</div><div class="brand-sub">{{ escola_sigla }}</div></div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item" data-view="dashboard" type="button"><svg class="ic"><use href="#i-dash"/></svg>Painel</button>
+      <button class="nav-item" data-view="inventario" type="button"><svg class="ic"><use href="#i-box"/></svg>Inventário</button>
+      <button class="nav-item" data-view="estatisticas" type="button"><svg class="ic"><use href="#i-chart"/></svg>Estatísticas</button>
+      <button class="nav-item" data-view="historico" type="button"><svg class="ic"><use href="#i-clock"/></svg>Histórico</button>
+      {% if role == 'admin' %}
+      <button class="nav-item" data-view="admin" type="button"><svg class="ic"><use href="#i-shield"/></svg>Administração</button>
+      {% endif %}
+    </nav>
+    <div class="side-foot">
+      <div class="profile">
+        <div class="avatar {% if role != 'admin' %}visitor{% endif %}">{% if role == 'admin' %}{{ (username or 'A')[0]|upper }}{% else %}<svg class="ic"><use href="#i-eye"/></svg>{% endif %}</div>
+        <div class="who">
+          <div class="who-name">{{ username or 'Visitante' }}</div>
+          <div class="who-role">{% if role == 'admin' %}Administrador{% else %}Modo consulta{% endif %}</div>
+        </div>
+      </div>
+      <a class="btn-exit" href="{{ url_for('logout') }}"><svg class="ic"><use href="#i-out"/></svg>Sair</a>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <main class="main" id="main">
+    <header class="topbar">
+      <div class="tb-left">
+        <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Abrir menu"><svg class="ic"><use href="#i-menu"/></svg></button>
+        <div>
+          <h1 class="tb-title" id="tb-title">Painel</h1>
+          <div class="tb-sub" id="tb-sub"></div>
+        </div>
+      </div>
+      <div class="tb-actions">
+        {% if role != 'admin' %}<span class="mode-pill"><svg class="ic sm"><use href="#i-eye"/></svg><span>Somente leitura</span></span>{% endif %}
+        <button class="icon-btn" id="theme-btn" type="button" aria-label="Alternar tema claro e escuro"><svg class="ic"><use href="#i-moon"/></svg></button>
+        {% if role == 'admin' %}<button class="btn btn-primary" id="new-btn" type="button"><svg class="ic sm"><use href="#i-plus"/></svg>Novo ativo</button>{% endif %}
+      </div>
+    </header>
+
+    <section class="view" id="view-dashboard"><div class="view-wrap" id="root-dashboard"></div></section>
+    <section class="view" id="view-inventario"><div class="view-wrap" id="root-inventario"></div></section>
+    <section class="view" id="view-estatisticas"><div class="view-wrap" id="root-estatisticas"></div></section>
+    <section class="view" id="view-historico"><div class="view-wrap" id="root-historico"></div></section>
+    {% if role == 'admin' %}<section class="view" id="view-admin"><div class="view-wrap" id="root-admin"></div></section>{% endif %}
+  </main>
+</div>
+
+<!-- Detalhes do equipamento -->
+<div class="overlay" id="modal-detail" role="dialog" aria-modal="true" aria-labelledby="detail-title"><div class="modal wide" id="detail-box"></div></div>
+<!-- Cadastro / edição -->
+<div class="overlay" id="modal-form" role="dialog" aria-modal="true" aria-labelledby="form-title"><div class="modal" id="form-box"></div></div>
+<!-- Confirmação -->
+<div class="overlay" id="modal-confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title"><div class="modal sm" id="confirm-box"></div></div>
+
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<!-- Assistente -->
+<button class="chat-fab" id="chat-fab" type="button" aria-label="Abrir assistente" hidden><svg class="ic"><use href="#i-chat"/></svg><span>Assistente</span><i class="fab-dot"></i></button>
+<section class="chat" id="chat" aria-label="Assistente de ativos" hidden>
+  <div class="chat-h">
+    <div class="chat-av"><svg class="ic"><use href="#i-chat"/></svg></div>
+    <div><b>Assistente de ativos</b><small>Responde com dados do inventário</small></div>
+    <button class="icon-btn" id="chat-close" type="button" aria-label="Fechar assistente"><svg class="ic"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="chat-msgs" id="chat-msgs" aria-live="polite"></div>
+  <div class="chat-sugg" id="chat-sugg"></div>
+  <form class="chat-in" id="chat-form" autocomplete="off">
+    <input class="input" id="chat-input" type="text" maxlength="300" placeholder="Pergunte sobre o sistema ou os ativos…" aria-label="Sua pergunta">
+    <button class="btn btn-primary" type="submit" aria-label="Enviar"><svg class="ic"><use href="#i-send"/></svg></button>
+  </form>
+</section>
+
+<div id="print-area" aria-hidden="true"></div>
+
+<script src="{{ url_for('static', filename='js/charts.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='js/qr.js', v=asset_v) }}"></script>
+<script src="{{ url_for('static', filename='js/app.js', v=asset_v) }}"></script>
+</body>
+</html>
