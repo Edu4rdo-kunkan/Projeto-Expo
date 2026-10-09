@@ -15,9 +15,4 @@ Como tudo funciona: a planilha fornece as informações, o arquivo `import_excel
 
 Assim, o administrador pode cadastrar, editar, excluir e consultar os equipamentos. É importante guardar cópias de segurança para não perder os dados.
 
-Criadores:
-Eduardo A. 99,99%
-Saymon M. 00,01%
-Ronaldo B. 00,00%
-Matheus M. 00,00%
-Yasmin C. 00,00%
+Criadores: Eduardo A. 99,99% / Saymon M. 00,01% / Ronaldo B. 00,00% / Matheus M. 00,00% / Yasmin C. 00,00%
